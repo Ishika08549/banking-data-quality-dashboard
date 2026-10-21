@@ -1,0 +1,11 @@
+issue_id,dataset,issue_type,severity,affected_records,affected_customers,root_cause,team,status,missing_rate_pct,resolution_hours,suggested_action,detected_at
+DQ-101,Loans,Missing customer reference,Critical,1240,860,Referential integrity failure,Data Engineering,Open,8.2,4.5,Validate Customer ID mapping between Loans and Customer tables,2026-10-18
+DQ-102,Cards,Duplicate transaction records,High,620,410,Possible duplicate load in ETL,ETL Operations,In Progress,1.4,2.8,Review ETL batch logs and deduplicate records,2026-10-18
+DQ-103,Customers,Missing email address,Medium,980,980,Source data completeness gap,Source Data Team,Open,6.7,0.0,Validate source capture rules and null-handling policy,2026-10-18
+DQ-104,Transactions,Late-arriving records,High,1850,720,Upstream feed delay,ETL Operations,Open,2.1,0.0,Check feed SLA and rerun impacted load if approved,2026-10-18
+DQ-105,Accounts,Invalid account status code,Medium,145,120,Reference code mismatch,Data Engineering,Resolved,0.8,1.2,Map valid codes and add a validation rule,2026-10-17
+DQ-106,Loans,Null loan product ID,Critical,315,290,Product reference missing upstream,Source Data Team,In Progress,5.8,3.4,Correct missing references and reprocess impacted records,2026-10-18
+DQ-107,Cards,ETL pipeline duration exceeded SLA,High,0,0,Slow transformation step,ETL Operations,Open,0.0,0.0,Profile the slow step and review recent code changes,2026-10-18
+DQ-108,Customers,Invalid date of birth format,Low,76,76,Inconsistent source date format,Source Data Team,Resolved,0.3,0.8,Standardize date parsing and add format validation,2026-10-16
+DQ-109,Transactions,Amount mismatch,Critical,95,83,Potential transformation or reconciliation issue,Data Engineering,Open,1.2,0.0,Trace transformation logic and reconcile affected transactions,2026-10-18
+DQ-110,Accounts,Stale account balance snapshot,Medium,430,270,Scheduled refresh delay,ETL Operations,In Progress,0.0,2.1,Confirm refresh dependencies and rerun if safe,2026-10-18
