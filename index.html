@@ -1,783 +1,495 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Data Quality & Impact Monitor</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    :root {
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --text: #172033;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --blue: #2563eb;
-      --red: #dc2626;
-      --yellow: #d97706;
-      --green: #15803d;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    header {
-      background: #14213d;
-      color: white;
-      padding: 26px 5%;
-    }
-
-    header h1 { margin: 0 0 8px; font-size: 28px; }
-    header p { margin: 0; color: #cbd5e1; }
-
-    main { max-width: 1450px; margin: auto; padding: 26px 4%; }
-
-    .notice {
-      padding: 12px 16px;
-      border-radius: 10px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-
-    .filters, .card, .panel {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      box-shadow: 0 3px 12px #0f172a08;
-    }
-
-    .filters {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    select, input, textarea {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: white;
-      color: var(--text);
-      font: inherit;
-    }
-
-    input[type="range"] { padding: 0; }
-
-    .kpis {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-
-    .card { border-top: 4px solid var(--blue); }
-    .card:nth-child(2) { border-top-color: #7c3aed; }
-    .card:nth-child(3) { border-top-color: var(--yellow); }
-    .card:nth-child(4) { border-top-color: var(--green); }
-
-    .card .label { color: var(--muted); font-size: 13px; }
-    .metric { font-size: 29px; font-weight: 750; margin-top: 10px; }
-
-    .section-title {
-      font-size: 20px;
-      margin: 28px 0 14px;
-    }
-
-    .alerts { display: grid; gap: 10px; }
-    .alert {
-      background: #fff7ed;
-      border-left: 5px solid var(--yellow);
-      border-radius: 8px;
-      padding: 14px;
-      line-height: 1.6;
-    }
-
-    .alert.critical, .alert.high {
-      background: #fef2f2;
-      border-left-color: var(--red);
-    }
-
-    .alert.low {
-      background: #f0fdf4;
-      border-left-color: var(--green);
-    }
-
-    .charts {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-bottom: 22px;
-    }
-
-    .panel h3 { margin-top: 0; }
-    .chart-wrap { height: 300px; position: relative; }
-
-    .table-wrap { overflow-x: auto; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    th, td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    th { background: #f8fafc; color: #475569; }
-    tbody tr:hover { background: #f8fafc; }
-
-    .badge {
-      display: inline-block;
-      border-radius: 999px;
-      padding: 4px 9px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #e2e8f0;
-    }
-
-    .badge.critical, .badge.high, .badge.open {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .badge.medium, .badge.in-progress {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .badge.low, .badge.resolved, .badge.closed {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .details-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin: 18px 0;
-    }
-
-    .detail-box {
-      padding: 14px;
-      background: #f8fafc;
-      border-radius: 10px;
-    }
-
-    .detail-box strong { display: block; margin-top: 8px; }
-
-    .detail-text { line-height: 1.7; margin: 12px 0; }
-
-    button {
-      background: var(--blue);
-      color: white;
-      border: 0;
-      border-radius: 8px;
-      padding: 11px 16px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    button:hover { background: #1d4ed8; }
-
-    .secondary { background: #475569; }
-    .secondary:hover { background: #334155; }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .full { grid-column: 1 / -1; }
-    .message { margin: 14px 0; font-size: 14px; }
-    .success { color: var(--green); }
-    .error { color: var(--red); }
-
-    footer {
-      text-align: center;
-      color: var(--muted);
-      padding: 25px 10px;
-      font-size: 12px;
-      line-height: 1.7;
-    }
-
-    @media (max-width: 850px) {
-      .kpis { grid-template-columns: repeat(2, 1fr); }
-      .charts { grid-template-columns: 1fr; }
-      .filters { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    @media (max-width: 520px) {
-      main { padding: 18px 12px; }
-      .kpis, .filters, .form-grid, .details-grid {
-        grid-template-columns: 1fr;
-      }
-      header h1 { font-size: 23px; }
-      .full { grid-column: auto; }
-    }
-  </style>
-</head>
-
-<body>
-<header>
-  <h1>📊 Data Quality & Impact Monitor</h1>
-  <p>Banking data quality dashboard · Illustrative dummy data</p>
-</header>
-
-<main>
-  <div class="notice">
-    Prototype only — not connected to a live banking system. Root causes are
-    illustrative hypotheses, and tickets are stored only in this browser.
-  </div>
-
-  <section class="filters">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   Banking Data Quality &amp; Impact Monitor
+  </title>
+  <link href="style.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <header>
+   <div class="top">
     <div>
-      <label for="dataset">Dataset</label>
-      <select id="dataset"><option value="All">All datasets</option></select>
+     <div class="eyebrow">
+      Banking operations &middot; Data observability
+     </div>
+     <h1>
+      Data Quality &amp; Impact Monitor
+     </h1>
+     <p class="sub">
+      A practical overview of data gaps, affected banking products, operational impact and follow-up actions.
+     </p>
     </div>
+    <div class="pill">
+     ● Prototype &middot; Illustrative data only
+    </div>
+   </div>
+  </header>
+  <main>
+   <div class="section-head">
     <div>
-      <label for="severity">Severity</label>
-      <select id="severity">
-        <option>All</option><option>Critical</option><option>High</option>
-        <option>Medium</option><option>Low</option>
+     <h2>
+      Operations overview
+     </h2>
+     <p>
+      Business KPIs across products, alongside current data-quality risk.
+     </p>
+    </div>
+    <span class="small">
+     Sample reporting period: October 2026
+    </span>
+   </div>
+   <div class="grid kpis">
+    <div class="card">
+     <div class="kpi-label">
+      Total applications
+     </div>
+     <div class="kpi-value" id="kApps">
+      12,480
+     </div>
+     <div class="kpi-foot">
+      <span class="kpi-dot">
+      </span>
+      Across all products
+     </div>
+    </div>
+    <div class="card">
+     <div class="kpi-label">
+      Transaction value
+     </div>
+     <div class="kpi-value" id="kTxn">
+      ₹8.42 Cr
+     </div>
+     <div class="kpi-foot">
+      Illustrative period total
+     </div>
+    </div>
+    <div class="card">
+     <div class="kpi-label">
+      Outstanding balance
+     </div>
+     <div class="kpi-value" id="kBal">
+      ₹3.76 Cr
+     </div>
+     <div class="kpi-foot">
+      Loans and card balances
+     </div>
+    </div>
+    <div class="card">
+     <div class="kpi-label">
+      Approval rate
+     </div>
+     <div class="kpi-value" id="kApproval">
+      72.8%
+     </div>
+     <div class="kpi-foot">
+      Approved / processed applications
+     </div>
+    </div>
+    <div class="card">
+     <div class="kpi-label">
+      Revenue
+     </div>
+     <div class="kpi-value" id="kRevenue">
+      ₹46.8 L
+     </div>
+     <div class="kpi-foot">
+      Illustrative fees and interest
+     </div>
+    </div>
+    <div class="card">
+     <div class="kpi-label">
+      Open data issues
+     </div>
+     <div class="kpi-value" id="kOpen">
+      18
+     </div>
+     <div class="kpi-foot">
+      <span style="color:var(--red)">
+       ●
+      </span>
+      Requires investigation
+     </div>
+    </div>
+   </div>
+   <div class="section-head">
+    <div>
+     <h2>
+      Data quality controls
+     </h2>
+     <p>
+      Filter issues, identify high-impact gaps and adjust the alert threshold.
+     </p>
+    </div>
+   </div>
+   <div class="card">
+    <div class="filters">
+     <div>
+      <label for="dataset">
+       Dataset
+      </label>
+      <select id="dataset">
+       <option>
+        All datasets
+       </option>
       </select>
+     </div>
+     <div>
+      <label for="severity">
+       Severity
+      </label>
+      <select id="severity">
+       <option>
+        All severities
+       </option>
+       <option>
+        Critical
+       </option>
+       <option>
+        High
+       </option>
+       <option>
+        Medium
+       </option>
+       <option>
+        Low
+       </option>
+      </select>
+     </div>
+     <div>
+      <label for="status">
+       Status
+      </label>
+      <select id="status">
+       <option>
+        All statuses
+       </option>
+       <option>
+        Open
+       </option>
+       <option>
+        In Progress
+       </option>
+       <option>
+        Resolved
+       </option>
+      </select>
+     </div>
+     <div>
+      <label for="product">
+       Banking product
+      </label>
+      <select id="product">
+       <option>
+        All products
+       </option>
+       <option>
+        Personal Credit Card
+       </option>
+       <option>
+        Premium Credit Card
+       </option>
+       <option>
+        Personal Loan
+       </option>
+       <option>
+        Home Loan
+       </option>
+       <option>
+        Savings Account
+       </option>
+       <option>
+        Current Account
+       </option>
+       <option>
+        Digital Payments
+       </option>
+      </select>
+     </div>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:15px;padding-top:14px;border-top:1px solid var(--line)">
+     <div>
+      <label for="threshold">
+       Missing-record alert threshold (%)
+      </label>
+      <div class="threshold-row">
+       <input id="threshold" max="50" min="1" type="number" value="5"/>
+       <span class="small">
+        Alert when missing rate meets or exceeds this value
+       </span>
+      </div>
+     </div>
+     <button class="btn ghost" id="reset">
+      Reset filters
+     </button>
+    </div>
+    <div class="alert" id="alertBox">
+     <div style="font-size:20px">
+      ⚠
+     </div>
+     <div>
+      <strong id="alertTitle">
+       Threshold alert
+      </strong>
+      <p id="alertText">
+       Checking issues against your configured threshold.
+      </p>
+     </div>
+    </div>
+   </div>
+   <div class="section-head">
     <div>
-      <label for="status">Status</label>
-      <select id="status"><option value="All">All statuses</option></select>
+     <h2>
+      Issue patterns
+     </h2>
+     <p>
+      Short labels keep charts readable; hover over a bar to see full names.
+     </p>
     </div>
+   </div>
+   <div class="grid charts">
+    <div class="card">
+     <h3 class="chart-title">
+      Issues by dataset
+     </h3>
+     <p class="chart-sub">
+      Number of matching issues &middot; horizontal view for clear labels
+     </p>
+     <div class="bars" id="datasetBars">
+     </div>
+    </div>
+    <div class="card">
+     <h3 class="chart-title">
+      Severity mix
+     </h3>
+     <p class="chart-sub">
+      Filtered issue count by severity
+     </p>
+     <div class="donut-wrap">
+      <div class="donut" id="severityDonut">
+       <div class="donut-center">
+        <span id="sevTotal">
+         0
+        </span>
+        <small>
+         issues
+        </small>
+       </div>
+      </div>
+      <div class="key" id="severityKey">
+      </div>
+     </div>
+    </div>
+    <div class="card">
+     <h3 class="chart-title">
+      Issues by product
+     </h3>
+     <p class="chart-sub">
+      Affected product areas
+     </p>
+     <div class="bars" id="productBars">
+     </div>
+    </div>
+   </div>
+   <div class="section-head">
     <div>
-      <label for="threshold">Missing-record alert threshold: <span id="thresholdValue">5</span>%</label>
-      <input id="threshold" type="range" min="1" max="20" value="5">
+     <h2>
+      Issue register &amp; impact analysis
+     </h2>
+     <p>
+      Select an issue to inspect affected records, possible cause and the team best placed to investigate.
+     </p>
     </div>
-  </section>
-
-  <section class="kpis">
-    <div class="card"><div class="label">Issues detected</div><div class="metric" id="issuesKpi">—</div></div>
-    <div class="card"><div class="label">Affected customers</div><div class="metric" id="customersKpi">—</div></div>
-    <div class="card"><div class="label">Open / in progress</div><div class="metric" id="openKpi">—</div></div>
-    <div class="card"><div class="label">Average resolution</div><div class="metric" id="resolutionKpi">—</div></div>
-  </section>
-
-  <h2 class="section-title">🚨 Data Quality Alerts</h2>
-  <section id="alerts" class="alerts">
-    <div class="panel">Loading data…</div>
-  </section>
-
-  <h2 class="section-title">📈 Issue Analytics</h2>
-  <section class="charts">
-    <div class="panel">
-      <h3>Issues by Dataset</h3>
-      <div class="chart-wrap"><canvas id="datasetChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h3>Issues by Severity</h3>
-      <div class="chart-wrap"><canvas id="severityChart"></canvas></div>
-    </div>
-  </section>
-
-  <h2 class="section-title">📋 Issue Register</h2>
-  <section class="panel">
-    <div class="table-wrap">
+    <span class="small" id="issueCount">
+     0 issues
+    </span>
+   </div>
+   <div class="issue-layout">
+    <div class="card">
+     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th>Issue ID</th><th>Dataset</th><th>Issue Type</th><th>Severity</th>
-          <th>Affected Records</th><th>Affected Customers</th><th>Root Cause</th>
-          <th>Team</th><th>Status</th><th>Missing Rate</th><th>Action</th>
-        </tr></thead>
-        <tbody id="issueRows"></tbody>
+       <thead>
+        <tr>
+         <th>
+          Issue
+         </th>
+         <th>
+          Dataset
+         </th>
+         <th>
+          Severity
+         </th>
+         <th>
+          Missing rate
+         </th>
+         <th>
+          Impacted records
+         </th>
+         <th>
+          Status
+         </th>
+         <th>
+         </th>
+        </tr>
+       </thead>
+       <tbody id="issueRows">
+       </tbody>
       </table>
+     </div>
     </div>
-  </section>
-
-  <h2 class="section-title">🔎 Investigate an Issue</h2>
-  <section class="panel">
-    <label for="selectedIssue">Select issue ID</label>
-    <select id="selectedIssue"><option value="">No issues available</option></select>
-    <div id="issueDetails"><p>Select an issue to view its details.</p></div>
-  </section>
-
-  <h2 class="section-title">🎫 Create a Prototype Ticket</h2>
-  <section class="panel">
-    <form id="ticketForm" class="form-grid">
-      <div>
-        <label for="ticketIssue">Issue</label>
-        <select id="ticketIssue" required></select>
-      </div>
-      <div>
-        <label for="team">Assign to team</label>
-        <select id="team" required></select>
-      </div>
-      <div>
-        <label for="priority">Priority</label>
-        <select id="priority">
-          <option>Critical</option><option>High</option>
-          <option selected>Medium</option><option>Low</option>
-        </select>
-      </div>
-      <div class="full">
-        <label for="note">Message to team</label>
-        <textarea id="note" rows="3" required>Please investigate the issue, validate the possible root cause, and confirm the impact.</textarea>
-      </div>
-      <div class="full"><button type="submit">Create ticket</button></div>
-    </form>
-    <p id="ticketMessage" class="message"></p>
-  </section>
-
-  <h2 class="section-title">🗂️ Tickets Created</h2>
-  <section class="panel">
-    <p id="noTickets">No tickets created in this browser yet.</p>
-    <div class="table-wrap">
-      <table id="ticketTable" hidden>
-        <thead><tr><th>Ticket ID</th><th>Issue ID</th><th>Team</th><th>Priority</th><th>Note</th><th>Created</th></tr></thead>
-        <tbody id="ticketRows"></tbody>
-      </table>
+    <div class="card">
+     <h3 class="chart-title">
+      Investigation details
+     </h3>
+     <p class="chart-sub">
+      Illustrative hypotheses&mdash;not confirmed root causes
+     </p>
+     <div class="empty" id="issueDetails">
+      Choose an issue from the register to see the impact analysis.
+     </div>
     </div>
-    <button id="clearTickets" class="secondary" type="button" hidden>Clear browser tickets</button>
-  </section>
-</main>
-
-<footer>
-  Data is fictional. Possible root causes are examples, not verified diagnoses.<br>
-  Tickets are saved locally in this browser only. No ticket is sent to a real team.
-</footer>
-
-<script>
-  const DATA_URL = "./data/issues.csv";
-
-  let allIssues = [];
-  let datasetChart = null;
-  let severityChart = null;
-
-  const $ = id => document.getElementById(id);
-  const number = value => Number(value) || 0;
-  const fmt = value => number(value).toLocaleString("en-IN");
-
-  function escapeHTML(value) {
-    return String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;",
-      '"': "&quot;", "'": "&#39;"
-    })[char]);
-  }
-
-  function badgeClass(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z-]/g, "");
-  }
-
-  function getFilteredIssues() {
-    const dataset = $("dataset").value;
-    const severity = $("severity").value;
-    const status = $("status").value;
-
-    return allIssues.filter(row =>
-      (dataset === "All" || row.dataset === dataset) &&
-      (severity === "All" || row.severity === severity) &&
-      (status === "All" || row.status === status)
-    );
-  }
-
-  function populateSelect(id, values, firstLabel) {
-    const select = $(id);
-    const previous = select.value;
-    select.innerHTML = "";
-
-    if (firstLabel !== null) {
-      const option = document.createElement("option");
-      option.value = "All";
-      option.textContent = firstLabel;
-      select.appendChild(option);
-    }
-
-    [...new Set(values.filter(Boolean))].sort().forEach(value => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value;
-      select.appendChild(option);
-    });
-
-    if ([...select.options].some(option => option.value === previous)) {
-      select.value = previous;
-    }
-  }
-
-  function renderKPIs(rows) {
-    $("issuesKpi").textContent = fmt(rows.length);
-
-    $("customersKpi").textContent = fmt(
-      rows.reduce((sum, row) => sum + number(row.affected_customers), 0)
-    );
-
-    $("openKpi").textContent = rows.filter(row =>
-      ["Open", "In Progress"].includes(row.status)
-    ).length.toLocaleString("en-IN");
-
-    const resolved = rows.map(row => number(row.resolution_hours))
-      .filter(value => value > 0);
-
-    $("resolutionKpi").textContent = resolved.length
-      ? (resolved.reduce((sum, value) => sum + value, 0) / resolved.length).toFixed(1) + " hrs"
-      : "N/A";
-  }
-
-  function renderAlerts(rows) {
-    const threshold = number($("threshold").value);
-    const alerts = rows.filter(row => number(row.missing_rate_pct) > threshold);
-    const container = $("alerts");
-
-    if (!alerts.length) {
-      container.innerHTML = `<div class="panel">✅ No missing-rate alerts above ${threshold}% for current filters.</div>`;
-      return;
-    }
-
-    container.innerHTML = alerts.map(row => {
-      const level = ["Critical", "High"].includes(row.severity) ? "critical" :
-                    row.severity === "Low" ? "low" : "";
-
-      return `<article class="alert ${level}">
-        <strong>${escapeHTML(row.issue_id)} | ${escapeHTML(row.dataset)}</strong><br>
-        ${escapeHTML(row.issue_type)} — <strong>${number(row.missing_rate_pct)}% missing</strong>;
-        ${fmt(row.affected_records)} records and ${fmt(row.affected_customers)}
-        customers potentially affected.
-        <br><span class="badge ${badgeClass(row.severity)}">${escapeHTML(row.severity)}</span>
-      </article>`;
-    }).join("");
-  }
-
-  function drawCharts(rows) {
-    const datasetCounts = {};
-    const severityCounts = {};
-
-    rows.forEach(row => {
-      datasetCounts[row.dataset] = (datasetCounts[row.dataset] || 0) + 1;
-      severityCounts[row.severity] = (severityCounts[row.severity] || 0) + 1;
-    });
-
-    if (datasetChart) datasetChart.destroy();
-    if (severityChart) severityChart.destroy();
-
-    datasetChart = new Chart($("datasetChart"), {
-      type: "bar",
-      data: {
-        labels: Object.keys(datasetCounts),
-        datasets: [{
-          label: "Number of issues",
-          data: Object.values(datasetCounts),
-          backgroundColor: "#3b82f6",
-          borderRadius: 5
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-      }
-    });
-
-    severityChart = new Chart($("severityChart"), {
-      type: "doughnut",
-      data: {
-        labels: Object.keys(severityCounts),
-        datasets: [{
-          data: Object.values(severityCounts),
-          backgroundColor: ["#dc2626", "#f97316", "#facc15", "#22c55e"]
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } }
-      }
-    });
-  }
-
-  function renderIssueTable(rows) {
-    $("issueRows").innerHTML = rows.map(row => `
+   </div>
+   <div class="section-head">
+    <div>
+     <h2>
+      Product &amp; transaction snapshot
+     </h2>
+     <p>
+      Cross-product context so the dashboard is not limited to credit cards.
+     </p>
+    </div>
+   </div>
+   <div class="card table-wrap">
+    <table>
+     <thead>
       <tr>
-        <td>${escapeHTML(row.issue_id)}</td>
-        <td>${escapeHTML(row.dataset)}</td>
-        <td>${escapeHTML(row.issue_type)}</td>
-        <td><span class="badge ${badgeClass(row.severity)}">${escapeHTML(row.severity)}</span></td>
-        <td>${fmt(row.affected_records)}</td>
-        <td>${fmt(row.affected_customers)}</td>
-        <td>${escapeHTML(row.root_cause)}</td>
-        <td>${escapeHTML(row.team)}</td>
-        <td><span class="badge ${badgeClass(row.status)}">${escapeHTML(row.status)}</span></td>
-        <td>${number(row.missing_rate_pct)}%</td>
-        <td><button type="button" data-issue="${escapeHTML(row.issue_id)}">Investigate</button></td>
+       <th>
+        Product / area
+       </th>
+       <th>
+        Applications / accounts
+       </th>
+       <th>
+        Transaction value
+       </th>
+       <th>
+        Outstanding balance
+       </th>
+       <th>
+        Revenue
+       </th>
+       <th>
+        Data quality status
+       </th>
       </tr>
-    `).join("");
-
-    $("issueRows").querySelectorAll("button[data-issue]").forEach(button => {
-      button.addEventListener("click", () => {
-        $("selectedIssue").value = button.dataset.issue;
-        renderDetails();
-        $("issueDetails").scrollIntoView({ behavior: "smooth", block: "center" });
-      });
-    });
-  }
-
-  function renderDetails() {
-    const id = $("selectedIssue").value;
-    const row = allIssues.find(item => item.issue_id === id);
-    const container = $("issueDetails");
-
-    if (!row) {
-      container.innerHTML = "<p>No issue selected.</p>";
-      return;
-    }
-
-    container.innerHTML = `
-      <div class="details-grid">
-        <div class="detail-box">Affected records<strong>${fmt(row.affected_records)}</strong></div>
-        <div class="detail-box">Affected customers<strong>${fmt(row.affected_customers)}</strong></div>
-        <div class="detail-box">Missing rate<strong>${number(row.missing_rate_pct)}%</strong></div>
+     </thead>
+     <tbody id="productRows">
+     </tbody>
+    </table>
+   </div>
+   <div class="section-head">
+    <div>
+     <h2>
+      Action tracker
+     </h2>
+     <p>
+      Create a local prototype ticket for follow-up. No real ticketing system is connected.
+     </p>
+    </div>
+   </div>
+   <div class="grid two">
+    <div class="card">
+     <h3 class="chart-title">
+      Create an action ticket
+     </h3>
+     <p class="chart-sub">
+      Use an issue from the investigation panel, or enter a short summary.
+     </p>
+     <div class="form-grid">
+      <div class="wide">
+       <label for="ticketTitle">
+        Ticket summary
+       </label>
+       <input id="ticketTitle" placeholder="e.g. Validate missing customer IDs" type="text"/>
       </div>
-      <p class="detail-text"><b>Dataset:</b> ${escapeHTML(row.dataset)}
-        &nbsp; | &nbsp; <b>Severity:</b> ${escapeHTML(row.severity)}</p>
-      <p class="detail-text"><b>Issue type:</b> ${escapeHTML(row.issue_type)}</p>
-      <p class="detail-text"><b>Possible root cause:</b> ${escapeHTML(row.root_cause)}</p>
-      <p class="detail-text"><b>Suggested action:</b> ${escapeHTML(row.suggested_action)}</p>
-      <p class="detail-text"><b>Responsible team:</b> ${escapeHTML(row.team)}</p>
-      <p class="detail-text"><b>Status:</b> ${escapeHTML(row.status)}</p>
-    `;
-  }
-
-  function renderTicketOptions(rows) {
-    const selected = $("ticketIssue").value;
-    $("ticketIssue").innerHTML = "";
-
-    rows.forEach(row => {
-      const option = document.createElement("option");
-      option.value = row.issue_id;
-      option.textContent = `${row.issue_id} — ${row.dataset}`;
-      $("ticketIssue").appendChild(option);
-    });
-
-    if ([...$("ticketIssue").options].some(option => option.value === selected)) {
-      $("ticketIssue").value = selected;
-    }
-
-    const teams = [...new Set(allIssues.map(row => row.team).filter(Boolean))].sort();
-    const previousTeam = $("team").value;
-    $("team").innerHTML = "";
-
-    teams.forEach(team => {
-      const option = document.createElement("option");
-      option.value = team;
-      option.textContent = team;
-      $("team").appendChild(option);
-    });
-
-    if (teams.includes(previousTeam)) $("team").value = previousTeam;
-  }
-
-  function renderTickets() {
-    let tickets = [];
-
-    try {
-      tickets = JSON.parse(localStorage.getItem("dqPrototypeTickets") || "[]");
-      if (!Array.isArray(tickets)) tickets = [];
-    } catch {
-      tickets = [];
-    }
-
-    $("noTickets").hidden = tickets.length > 0;
-    $("ticketTable").hidden = tickets.length === 0;
-    $("clearTickets").hidden = tickets.length === 0;
-
-    $("ticketRows").innerHTML = tickets.map(ticket => `
-      <tr>
-        <td>${escapeHTML(ticket.id)}</td>
-        <td>${escapeHTML(ticket.issueId)}</td>
-        <td>${escapeHTML(ticket.team)}</td>
-        <td><span class="badge ${badgeClass(ticket.priority)}">${escapeHTML(ticket.priority)}</span></td>
-        <td>${escapeHTML(ticket.note)}</td>
-        <td>${escapeHTML(ticket.created)}</td>
-      </tr>
-    `).join("");
-  }
-
-  function render() {
-    const rows = getFilteredIssues();
-
-    renderKPIs(rows);
-    renderAlerts(rows);
-    drawCharts(rows);
-    renderIssueTable(rows);
-
-    const previousIssue = $("selectedIssue").value;
-    $("selectedIssue").innerHTML = "";
-
-    rows.forEach(row => {
-      const option = document.createElement("option");
-      option.value = row.issue_id;
-      option.textContent = row.issue_id;
-      $("selectedIssue").appendChild(option);
-    });
-
-    if (rows.some(row => row.issue_id === previousIssue)) {
-      $("selectedIssue").value = previousIssue;
-    }
-
-    renderDetails();
-    renderTicketOptions(rows);
-  }
-
-  ["dataset", "severity", "status"].forEach(id => {
-    $(id).addEventListener("change", render);
-  });
-
-  $("threshold").addEventListener("input", () => {
-    $("thresholdValue").textContent = $("threshold").value;
-    renderAlerts(getFilteredIssues());
-  });
-
-  $("selectedIssue").addEventListener("change", renderDetails);
-
-  $("ticketForm").addEventListener("submit", event => {
-    event.preventDefault();
-
-    const issueId = $("ticketIssue").value;
-    if (!issueId) {
-      $("ticketMessage").textContent = "No issue is available for ticket creation.";
-      $("ticketMessage").className = "message error";
-      return;
-    }
-
-    let tickets = [];
-    try {
-      tickets = JSON.parse(localStorage.getItem("dqPrototypeTickets") || "[]");
-      if (!Array.isArray(tickets)) tickets = [];
-    } catch {
-      tickets = [];
-    }
-
-    const ticket = {
-      id: "TKT-" + String(tickets.length + 1).padStart(3, "0"),
-      issueId,
-      team: $("team").value,
-      priority: $("priority").value,
-      note: $("note").value.trim(),
-      created: new Date().toLocaleString()
-    };
-
-    tickets.push(ticket);
-
-    try {
-      localStorage.setItem("dqPrototypeTickets", JSON.stringify(tickets));
-      $("ticketMessage").textContent =
-        `Prototype ticket ${ticket.id} created. It has not been sent to a real ticketing system.`;
-      $("ticketMessage").className = "message success";
-      renderTickets();
-    } catch {
-      $("ticketMessage").textContent =
-        "Browser storage is unavailable. The ticket could not be saved.";
-      $("ticketMessage").className = "message error";
-    }
-  });
-
-  $("clearTickets").addEventListener("click", () => {
-    if (confirm("Clear prototype tickets saved in this browser?")) {
-      localStorage.removeItem("dqPrototypeTickets");
-      renderTickets();
-      $("ticketMessage").textContent = "Browser tickets cleared.";
-      $("ticketMessage").className = "message success";
-    }
-  });
-
-  async function loadData() {
-    try {
-      const response = await fetch(DATA_URL);
-
-      if (!response.ok) {
-        throw new Error(`Could not load ${DATA_URL} (HTTP ${response.status}).`);
-      }
-
-      const csvText = await response.text();
-      const parsed = Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: header => header.trim()
-      });
-
-      if (parsed.errors.length) {
-        console.warn("CSV parsing warnings:", parsed.errors);
-      }
-
-      const required = [
-        "issue_id", "dataset", "issue_type", "severity",
-        "affected_records", "affected_customers", "root_cause",
-        "team", "status", "missing_rate_pct", "resolution_hours",
-        "suggested_action"
-      ];
-
-      const headers = parsed.meta.fields || [];
-      const missing = required.filter(name => !headers.includes(name));
-
-      if (missing.length) {
-        throw new Error("CSV is missing columns: " + missing.join(", "));
-      }
-
-      allIssues = parsed.data.map(row => {
-        const clean = {};
-        Object.keys(row).forEach(key => {
-          clean[key] = typeof row[key] === "string" ? row[key].trim() : row[key];
-        });
-        return clean;
-      }).filter(row => row.issue_id);
-
-      if (!allIssues.length) {
-        throw new Error("The CSV file contains no issue records.");
-      }
-
-      populateSelect("dataset", allIssues.map(row => row.dataset), "All datasets");
-      populateSelect("status", allIssues.map(row => row.status), "All statuses");
-
-      render();
-      renderTickets();
-    } catch (error) {
-      console.error(error);
-      document.querySelector("main").insertAdjacentHTML("afterbegin", `
-        <div class="alert critical">
-          <strong>Dashboard data could not be loaded.</strong><br>
-          ${escapeHTML(error.message)}<br><br>
-          Check that <code>data/issues.csv</code> exists in your repository and
-          that its column names match the required fields in this page.
-        </div>
-      `);
-      $("alerts").innerHTML = "";
-    }
-  }
-
-  loadData();
-</script>
-</body>
+      <div>
+       <label for="ticketTeam">
+        Responsible team
+       </label>
+       <select id="ticketTeam">
+        <option>
+         Data Engineering
+        </option>
+        <option>
+         Source System Team
+        </option>
+        <option>
+         ETL / Pipeline Team
+        </option>
+        <option>
+         Product Operations
+        </option>
+        <option>
+         Data Governance
+        </option>
+       </select>
+      </div>
+      <div>
+       <label for="ticketPriority">
+        Priority
+       </label>
+       <select id="ticketPriority">
+        <option>
+         High
+        </option>
+        <option>
+         Critical
+        </option>
+        <option>
+         Medium
+        </option>
+        <option>
+         Low
+        </option>
+       </select>
+      </div>
+      <div class="wide">
+       <label for="ticketAction">
+        Proposed next step
+       </label>
+       <textarea id="ticketAction" placeholder="Describe validation or correction needed" rows="2"></textarea>
+      </div>
+     </div>
+     <button class="btn" id="createTicket" style="margin-top:12px">
+      Create prototype ticket
+     </button>
+     <p aria-live="polite" class="small" id="ticketMsg">
+     </p>
+    </div>
+    <div class="card">
+     <h3 class="chart-title">
+      Prototype tickets
+     </h3>
+     <p class="chart-sub">
+      Stored only in this browser session; refresh may clear the list.
+     </p>
+     <div class="ticket-list" id="tickets">
+      <div class="empty">
+       No tickets created yet.
+      </div>
+     </div>
+    </div>
+   </div>
+   <div class="note">
+    <b>
+     Important:
+    </b>
+    All business KPIs and sample issue records on this page are fictional demonstration data. Root causes are investigation hypotheses, not verified findings. This static GitHub Pages prototype does not connect to live banking data or create tickets in an external system.
+   </div>
+  </main>
+  <script defer="" src="script.js">
+  </script>
+ </body>
 </html>
